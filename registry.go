@@ -247,6 +247,10 @@ func (c *client) goRetracted(ctx context.Context, base, version string) (string,
 
 // ---------- shared ----------
 
+// maxBody caps a single registry response. Packuments are much larger than
+// they look — vite's is ~39 MB — so this is generous while still bounded.
+const maxBody = 512 << 20
+
 func (c *client) get(ctx context.Context, endpoint string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -262,5 +266,18 @@ func (c *client) get(ctx context.Context, endpoint string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: %s", endpoint, resp.Status)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+
+	// Read one byte past the cap, so hitting it is reported as a truncated
+	// response instead of surfacing later as a confusing parse error. An
+	// earlier 32 MB cap silently cut vite's ~39 MB packument in half and the
+	// dependency came back as "unexpected end of JSON input" — unchecked, and
+	// only visible because unchecked dependencies are reported at all.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > maxBody {
+		return nil, fmt.Errorf("%s: response exceeds %d bytes; refusing to parse a truncated document", endpoint, maxBody)
+	}
+	return body, nil
 }
