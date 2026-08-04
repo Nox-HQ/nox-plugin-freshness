@@ -1,0 +1,24 @@
+# nox configuration — the security/dependency gate for this repo.
+# Dependabot is deliberately unused; nox-remediate.yml opens the upgrade PRs.
+
+plugins:
+  # Installing a plugin does NOT make it run. nox executes only the plugins
+  # listed here; anything installed but unlisted is reported as [degraded] and
+  # its findings are simply absent — a scan with no SAST coverage reads exactly
+  # like a clean one.
+  required:
+    # Source-to-sink taint analysis: SSRF, injection, path traversal.
+    - nox/taint-analysis
+
+scan:
+  exclude:
+    # Scanner state. Baseline fingerprints are SHA-256 hex that re-trips the
+    # secret detector. Never scan the scanner.
+    - .nox/
+    # Markdown is prose. The README quotes registry metadata, package names and
+    # a compromised version's publish time; the secret and entropy rules fire on
+    # that kind of documentation. Real secret patterns are still caught in code.
+    # Classification: False Positive (prose). Last reviewed: 2026-08-04
+    - "*.md"
+    - "**/*.md"
+    - README.md
