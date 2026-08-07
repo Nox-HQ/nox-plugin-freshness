@@ -1,7 +1,12 @@
 # Dependabot replacement. Weekly (and on-demand) OSV dependency upgrades plus
 # GitHub Actions pin bumps, opened as one PR and auto-merged when CI is green.
-# Delegates to the central felixgeelhaar/.github reusable workflow, matching
-# the rest of the fleet.
+#
+# Calls the Nox-HQ reusable workflow rather than the felixgeelhaar one. That is
+# not cosmetic: `secrets: inherit` only passes secrets to reusable workflows in
+# the same organisation, so a Nox-HQ repository calling a felixgeelhaar
+# workflow would inherit nothing — silently — and the run would fall back to
+# GITHUB_TOKEN, which cannot open pull requests. klarlabs-studio/roady lost two
+# weeks of remediation to exactly that.
 name: Nox Remediate
 
 on:
@@ -17,5 +22,5 @@ permissions:
 
 jobs:
   remediate:
-    uses: felixgeelhaar/.github/.github/workflows/nox-remediate.yml@main
-    secrets: inherit # passes NOX_TOKEN through when defined (needed to bump action pins)
+    uses: nox-hq/.github/.github/workflows/nox-remediate.yml@main
+    secrets: inherit # same org, so the Nox-HQ NOX_TOKEN reaches the called workflow

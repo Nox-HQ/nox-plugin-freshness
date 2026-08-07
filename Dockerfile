@@ -18,7 +18,7 @@ FROM scratch
 
 # Maintainer as a profile URL, not an email: this label ships inside a public
 # image, and a personal address there is PII in a published artifact.
-LABEL maintainer="https://github.com/felixgeelhaar" \
+LABEL maintainer="https://github.com/nox-hq" \
       org.opencontainers.image.title="nox-plugin-freshness" \
       org.opencontainers.image.description="Flags dependencies by suspicious provenance rather than by published advisory" \
       org.opencontainers.image.source="https://github.com/nox-hq/nox-plugin-freshness" \

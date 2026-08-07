@@ -1,4 +1,4 @@
-module github.com/felixgeelhaar/nox-plugin-freshness
+module github.com/nox-hq/nox-plugin-freshness
 
 go 1.25.6
 
