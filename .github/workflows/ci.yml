@@ -6,15 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-# Required by plugin-ci.yml's Security (nox) job, which uploads SARIF. A
-# reusable workflow's job cannot request more than its caller was granted, and
-# this repository's default workflow permission is `read` — so omitting this
-# block fails the run at startup, before any job exists, with no log to read.
-# It fails even when that job is disabled below: permissions are validated when
-# the run is created, not when the job is skipped.
+# Scanning lives in nox-scan.yml, using the SHA-pinned nox-hq/nox action the
+# other plugin repositories use. This workflow is lint / test / conformance /
+# build only, so it needs no security-events permission.
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   ci:
@@ -22,8 +18,3 @@ jobs:
     with:
       go-version: '1.25'
       run-conformance: true
-      # Scanning happens in nox-scan.yml via the SHA-pinned nox-hq/nox action,
-      # the way the other plugin repos do it. Leaving the shared workflow's
-      # scan enabled as well would run two scanners over one repo and upload
-      # two SARIF sets to code scanning.
-      nox-scan: false
