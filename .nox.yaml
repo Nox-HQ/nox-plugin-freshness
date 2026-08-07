@@ -10,31 +10,23 @@ plugins:
     # Source-to-sink taint analysis: SSRF, injection, path traversal.
     - nox/taint-analysis
 
-# Findings accepted in .nox/baseline.json, and why. Baseline entries record a
-# fingerprint and nothing else, so the reasoning lives here or nowhere.
+# Accepted findings are waived with `nox:ignore` at the site they occur, not in
+# a baseline: the reason then lives beside the thing it explains, and it does
+# not depend on a fingerprint that varies between machines.
+#
+# Two rules about that directive, both learned the hard way here:
+#
+#   1. It must sit on the line IMMEDIATELY above the finding. Prose may precede
+#      the directive, but nothing may come between it and its target — a
+#      two-line comment silences nothing, and does so quietly.
+#   2. Some IaC rules match literal strings anywhere, including inside comments.
+#      Spelling a flagged token out in the waiver's own text re-triggers the
+#      rule on the comment line. Describe it in words instead.
+#
 # Everything fixable was fixed rather than waived: the base image is digest-
 # pinned, the runtime stage runs as uid 65532, and the maintainer label is a
 # profile URL rather than an email (which tripped DATA-001 — PII inside a
 # published image).
-#
-#   IAC-002  Dockerfile:10  `FROM scratch` has no digest to pin; scratch is the
-#                           empty image. Not applicable rather than accepted.
-#   IAC-121  Dockerfile:3   HEALTHCHECK needs a binary to run. The runtime is
-#                           scratch with a single static plugin and no shell.
-#   IAC-123  Dockerfile:5,7 COPY --chown in the build stage. The layer is
-#                           discarded, and chowning sources away from root
-#                           would break the compile that follows.
-#   IAC-018  nox-scan.yml   Matches the *prose* explaining why continue-on-error
-#                           was removed from the plugin install. The directive
-#                           is gone; the comment describing it is not.
-#   IAC-153  nox-scan.yml   Artifact attestation. The artifact is scan output
-#                           for debugging, not a distributed build product;
-#                           release binaries are the thing worth attesting.
-#   IAC-308  remediate:10   workflow_dispatch is deliberate — it is how a
-#                           remediation run is triggered out of schedule.
-#   IAC-309  nox-scan.yml   cancel-in-progress is deliberate on a scan workflow.
-#   IAC-314  remediate:13   contents:write is required to push the remediation
-#                           branch; that is the workflow's entire purpose.
 #
 # Last reviewed: 2026-08-07
 

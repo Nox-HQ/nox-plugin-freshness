@@ -7,9 +7,11 @@ name: Nox Remediate
 on:
   schedule:
     - cron: "17 6 * * 1" # Mondays 06:17 UTC
+  # nox:ignore IAC-308 -- workflow_dispatch is how a remediation run is triggered off-schedule.
   workflow_dispatch: {}
 
 permissions:
+  # nox:ignore IAC-314 -- write access to repository contents is required to push the remediation branch; that is the workflow's whole purpose.
   contents: write
   pull-requests: write
 

@@ -30,6 +30,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
+  # nox:ignore IAC-309 -- deliberate on a scan workflow: a superseded push should not keep burning a runner.
   cancel-in-progress: true
 
 permissions:
@@ -68,6 +69,7 @@ jobs:
         # traversal). The plugin is cosign-signed; with cosign present nox
         # promotes it to community trust and installs it (no bypass).
         #
+        # nox:ignore IAC-018 -- matches the prose explaining why continue-on-error was REMOVED; no such directive exists here.
         # #89 added `continue-on-error: true` here on the reasoning that a
         # plugin-registry 404 is not a security failure. The consequence was
         # that a 404 produced a green scan with no SAST coverage, reported
@@ -103,27 +105,32 @@ jobs:
         run: nox annotate -input nox-results/findings.json || true
 
       - name: Gate on net-new critical/high findings
-        # Self-adjusting: report-only until the repo commits a nox baseline,
-        # then gates net-new critical/high. Adopting the workflow never breaks a
-        # red build on day one.
+        # Enforces unconditionally. The shared version of this step is
+        # self-adjusting — report-only until `baselined > 0` — so that adopting
+        # nox cannot turn a red build red on day one. That heuristic reads the
+        # presence of baseline entries as "this repo has finished adopting",
+        # and it is wrong for a repo that waives findings with `nox:ignore` at
+        # the site instead: waive everything inline, and the count of baselined
+        # findings stays zero, so the gate quietly never enforces. A gate whose
+        # off-switch is "you cleaned up properly" is worse than no gate.
+        #
+        # This repo has no live findings, so enforcing costs nothing today and
+        # fails the build the moment that stops being true.
         if: always() && hashFiles('nox-results/findings.json') != ''
         run: |
           f=nox-results/findings.json
-          baselined=$(jq '[.findings[]? | select(.Status=="baselined")] | length' "$f" 2>/dev/null || echo 0)
-          new=$(jq '[.findings[]? | select((.Severity=="critical" or .Severity=="high") and (.Status!="baselined"))] | length' "$f" 2>/dev/null || echo 0)
-          echo "net-new critical/high: $new (baselined findings: $baselined)"
-          if [ "$baselined" -eq 0 ]; then
-            echo "::notice::No nox baseline established — security gate is report-only. Run 'nox baseline add' and commit .nox/ to enforce net-new critical/high."
-            exit 0
-          fi
+          waived=$(jq '[.findings[]? | select(.Status=="baselined" or .Status=="suppressed")] | length' "$f" 2>/dev/null || echo 0)
+          new=$(jq '[.findings[]? | select((.Severity=="critical" or .Severity=="high") and ((.Status // "") == ""))] | length' "$f" 2>/dev/null || echo 0)
+          echo "net-new critical/high: $new (waived findings: $waived)"
           if [ "$new" -gt 0 ]; then
-            echo "::error::Net-new critical/high findings. Run 'nox baseline add' or remediate."
-            jq '.findings[] | select((.Severity=="critical" or .Severity=="high") and (.Status!="baselined")) | {severity:.Severity, rule:.RuleID, file:.Location.FilePath, line:.Location.StartLine}' "$f"
+            echo "::error::Net-new critical/high findings. Remediate, or waive at the site with a nox:ignore directive stating why."
+            jq '.findings[] | select((.Severity=="critical" or .Severity=="high") and ((.Status // "") == "")) | {severity:.Severity, rule:.RuleID, file:.Location.FilePath, line:.Location.StartLine}' "$f"
             exit 1
           fi
 
       - name: Upload nox artifacts
         if: always() && hashFiles('nox-results/**') != ''
+        # nox:ignore IAC-153 -- the artifact is scan output for debugging, not a distributed build product; release binaries are what warrant attestation.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nox-results
