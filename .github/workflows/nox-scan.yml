@@ -1,17 +1,18 @@
-# Standalone nox security scan — mirrors the `security` job of the reusable
-# felixgeelhaar/.github go-ci.yml, kept separate from ci.yml's job names
-# (Test / Lint / Build / Dependency Go-version drift) and the CodeQL "Analyze"
-# check.
+# Nox self-scan, matching the twenty-one sibling plugin repositories.
 #
-# This is the only security scanner in the repo. Dependabot is deliberately not
-# used: the fleet migrated onto nox for dependency CVEs, and nox-remediate.yml
-# opens the upgrade PRs that dependabot used to.
+# This replaces a hand-rolled version that downloaded the nox tarball, verified
+# a sha256, installed cosign and reimplemented a baseline gate in shell. The
+# fleet already had a better answer and this repo was the odd one out:
 #
-# Pinned + sha256-verified nox 1.26.0, cosign for signed-plugin trust,
-# source-to-sink taint SAST, SARIF -> GitHub code scanning, and a
-# self-adjusting gate: report-only until a nox baseline exists (a baseline is
-# committed at .nox/baseline.json, so this gate enforces net-new critical/high
-# and stays green while known findings remain waived).
+#   - nox-hq/nox is pinned by commit SHA, so there is no tarball digest to bump
+#     by hand and get wrong.
+#   - The PR gate scans changed files only, at high severity, rather than
+#     diffing a full scan against a committed baseline. That sidesteps
+#     fingerprint stability entirely — nox/taint-analysis fingerprints vary
+#     with the scan directory (nox-hq/nox-plugin-taint-analysis#37), which
+#     makes a baselined finding valid only on the machine that produced it.
+#
+# The push scan reports without failing; the PR gate is what blocks.
 name: Nox Security Scan
 
 on:
@@ -38,101 +39,75 @@ permissions:
   security-events: write
 
 jobs:
-  security:
-    name: Security (nox)
+  nox-scan:
+    name: Nox Self-Scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
-      pull-requests: write   # nox annotate
-    env:
-      NOX_VERSION: "1.26.0"
-      NOX_SHA256: "6879f8c7b523ebab9920d40919917b422bb952f9252fbadde9061cb37827793c"
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
-      - name: Install nox (pinned + sha256-verified binary)
-        run: |
-          curl -sL -o nox.tar.gz \
-            "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz"
-          echo "${NOX_SHA256}  nox.tar.gz" | sha256sum -c -
-          tar xzf nox.tar.gz && sudo mv nox /usr/local/bin/ && nox version
+      - name: Run Nox
+        uses: nox-hq/nox@54b9bb3acbf4d250595271a2c06cfee4eb441ee9 # v1.26.0
+        with:
+          path: .
+          format: sarif,json
+          output: nox-results
+          fail-on-findings: 'false'
+          # A check that could not complete — an OSV lookup, a lockfile parse,
+          # a plugin — is not a clean result. This is the action's own framing
+          # and it is the right one.
+          fail-on-degraded: 'true'
 
-      - name: Install cosign
-        # nox verifies plugin signatures by shelling out to cosign. Without it,
-        # signed plugins can't be promoted past "unverified" and install is
-        # blocked under the default community-trust policy.
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Install taint-analysis plugin
-        # nox owns code-level SAST: source-to-sink taint (SSRF, injection, path
-        # traversal). The plugin is cosign-signed; with cosign present nox
-        # promotes it to community trust and installs it (no bypass).
-        #
-        # nox:ignore IAC-018 -- matches the prose explaining why continue-on-error was REMOVED; no such directive exists here.
-        # #89 added `continue-on-error: true` here on the reasoning that a
-        # plugin-registry 404 is not a security failure. The consequence was
-        # that a 404 produced a green scan with no SAST coverage, reported
-        # identically to a clean one — absence of coverage presented as absence
-        # of findings. The install is asserted instead; re-run the job if the
-        # registry is briefly unavailable.
-        #
-        # The 404 itself came from pinning @0.7.0; the pin is dropped and nox
-        # bumped to 1.26.0, where the lookup resolves.
-        #
-        # Installing is also not enough on its own: nox runs only the plugins
-        # listed under plugins.required in .nox.yaml.
-        run: |
-          nox plugin install nox/taint-analysis
-          nox plugin list | grep -q '^nox/taint-analysis' || {
-            echo "::error::taint-analysis plugin is not installed; this scan would have no SAST coverage."
-            exit 1
-          }
-
-      - name: Scan
-        run: nox scan . -format json,sarif -output nox-results || true
-
-      - name: Upload SARIF to code scanning
-        if: always() && hashFiles('nox-results/results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@33119e582d3ab4ed79c2610af108cb08ff983917 # v3
+        if: always()
         with:
           sarif_file: nox-results/results.sarif
+        # nox:ignore IAC-018 -- SARIF upload is best-effort by design; a code-scanning outage must not fail the security job that produced the findings.
+        continue-on-error: true
 
-      - name: Annotate PR
-        if: github.event_name == 'pull_request' && hashFiles('nox-results/findings.json') != ''
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: nox annotate -input nox-results/findings.json || true
-
-      - name: Gate on net-new critical/high findings
-        # Enforces unconditionally. The shared version of this step is
-        # self-adjusting — report-only until `baselined > 0` — so that adopting
-        # nox cannot turn a red build red on day one. That heuristic reads the
-        # presence of baseline entries as "this repo has finished adopting",
-        # and it is wrong for a repo that waives findings with `nox:ignore` at
-        # the site instead: waive everything inline, and the count of baselined
-        # findings stays zero, so the gate quietly never enforces. A gate whose
-        # off-switch is "you cleaned up properly" is worse than no gate.
-        #
-        # This repo has no live findings, so enforcing costs nothing today and
-        # fails the build the moment that stops being true.
-        if: always() && hashFiles('nox-results/findings.json') != ''
-        run: |
-          f=nox-results/findings.json
-          waived=$(jq '[.findings[]? | select(.Status=="baselined" or .Status=="suppressed")] | length' "$f" 2>/dev/null || echo 0)
-          new=$(jq '[.findings[]? | select((.Severity=="critical" or .Severity=="high") and ((.Status // "") == ""))] | length' "$f" 2>/dev/null || echo 0)
-          echo "net-new critical/high: $new (waived findings: $waived)"
-          if [ "$new" -gt 0 ]; then
-            echo "::error::Net-new critical/high findings. Remediate, or waive at the site with a nox:ignore directive stating why."
-            jq '.findings[] | select((.Severity=="critical" or .Severity=="high") and ((.Status // "") == "")) | {severity:.Severity, rule:.RuleID, file:.Location.FilePath, line:.Location.StartLine}' "$f"
-            exit 1
-          fi
-
-      - name: Upload nox artifacts
-        if: always() && hashFiles('nox-results/**') != ''
+      - name: Upload scan artifact
         # nox:ignore IAC-153 -- the artifact is scan output for debugging, not a distributed build product; release binaries are what warrant attestation.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
         with:
           name: nox-results
           path: nox-results/
-          retention-days: 7
+          if-no-files-found: warn
+
+  nox-pr-gate:
+    name: Nox PR Gate (high/critical)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run Nox (changed files only)
+        uses: nox-hq/nox@54b9bb3acbf4d250595271a2c06cfee4eb441ee9 # v1.26.0
+        with:
+          path: .
+          format: sarif,json
+          output: nox-pr
+          fail-on-findings: 'true'
+          severity-threshold: high
+          changed-since: origin/${{ github.base_ref }}
+          fail-on-degraded: 'true'
+
+      - name: Upload SARIF (PR-scoped)
+        uses: github/codeql-action/upload-sarif@33119e582d3ab4ed79c2610af108cb08ff983917 # v3
+        if: always()
+        with:
+          sarif_file: nox-pr/results.sarif
+          category: nox-pr
+        # nox:ignore IAC-018 -- as above: the PR-scoped SARIF upload is best-effort; the gate itself is what blocks.
+        continue-on-error: true

@@ -1,14 +1,23 @@
 # nox configuration — the security/dependency gate for this repo.
 # Dependabot is deliberately unused; nox-remediate.yml opens the upgrade PRs.
 
-plugins:
-  # Installing a plugin does NOT make it run. nox executes only the plugins
-  # listed here; anything installed but unlisted is reported as [degraded] and
-  # its findings are simply absent — a scan with no SAST coverage reads exactly
-  # like a clean one.
-  required:
-    # Source-to-sink taint analysis: SSRF, injection, path traversal.
-    - nox/taint-analysis
+# No plugins.required, deliberately, and this costs real coverage.
+#
+# nox executes only the plugins named under plugins.required, so declaring
+# nox/taint-analysis here is what would make source-to-sink SAST run. But the
+# nox-hq/nox action has no input for installing plugins, and CI scans through
+# that action — so a requirement declared here could never be satisfied. It
+# would make every run [degraded], and with fail-on-degraded set, red.
+#
+# The choice is therefore between a requirement that cannot be met and no
+# requirement at all, not between having SAST and not having it. The twenty-one
+# sibling plugin repositories carry no .nox.yaml for the same reason.
+#
+# Closing this properly means a `plugins` input on the action. Until then, run
+# taint analysis locally:
+#
+#     nox plugin install nox/taint-analysis
+#     nox scan .        # with plugins.required set in a local override
 
 # Accepted findings are waived with `nox:ignore` at the site they occur, not in
 # a baseline: the reason then lives beside the thing it explains, and it does

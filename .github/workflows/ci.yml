@@ -12,3 +12,8 @@ jobs:
     with:
       go-version: '1.25'
       run-conformance: true
+      # Scanning happens in nox-scan.yml via the SHA-pinned nox-hq/nox action,
+      # the way the other plugin repos do it. Leaving the shared workflow's
+      # scan enabled as well would run two scanners over one repo and upload
+      # two SARIF sets to code scanning.
+      nox-scan: false
