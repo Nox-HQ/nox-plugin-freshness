@@ -10,6 +10,34 @@ plugins:
     # Source-to-sink taint analysis: SSRF, injection, path traversal.
     - nox/taint-analysis
 
+# Findings accepted in .nox/baseline.json, and why. Baseline entries record a
+# fingerprint and nothing else, so the reasoning lives here or nowhere.
+# Everything fixable was fixed rather than waived: the base image is digest-
+# pinned, the runtime stage runs as uid 65532, and the maintainer label is a
+# profile URL rather than an email (which tripped DATA-001 — PII inside a
+# published image).
+#
+#   IAC-002  Dockerfile:10  `FROM scratch` has no digest to pin; scratch is the
+#                           empty image. Not applicable rather than accepted.
+#   IAC-121  Dockerfile:3   HEALTHCHECK needs a binary to run. The runtime is
+#                           scratch with a single static plugin and no shell.
+#   IAC-123  Dockerfile:5,7 COPY --chown in the build stage. The layer is
+#                           discarded, and chowning sources away from root
+#                           would break the compile that follows.
+#   IAC-018  nox-scan.yml   Matches the *prose* explaining why continue-on-error
+#                           was removed from the plugin install. The directive
+#                           is gone; the comment describing it is not.
+#   IAC-153  nox-scan.yml   Artifact attestation. The artifact is scan output
+#                           for debugging, not a distributed build product;
+#                           release binaries are the thing worth attesting.
+#   IAC-308  remediate:10   workflow_dispatch is deliberate — it is how a
+#                           remediation run is triggered out of schedule.
+#   IAC-309  nox-scan.yml   cancel-in-progress is deliberate on a scan workflow.
+#   IAC-314  remediate:13   contents:write is required to push the remediation
+#                           branch; that is the workflow's entire purpose.
+#
+# Last reviewed: 2026-08-07
+
 scan:
   exclude:
     # Scanner state. Baseline fingerprints are SHA-256 hex that re-trips the
