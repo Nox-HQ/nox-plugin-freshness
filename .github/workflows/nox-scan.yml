@@ -51,7 +51,11 @@ jobs:
           fetch-depth: 0
 
       - name: Run Nox
-        uses: nox-hq/nox@54b9bb3acbf4d250595271a2c06cfee4eb441ee9 # v1.26.0
+        # Pinned past v1.26.0: the action gained plugin installation in #447,
+        # which landed after that tag. Without it a plugins.required entry can
+        # never be satisfied and every run is [degraded]. Move back to a
+        # release SHA once one ships containing 741c990.
+        uses: nox-hq/nox@741c99069af0a41520802ab1f70b57b7e6948e0f # main, post-v1.26.0
         with:
           path: .
           format: sarif,json
@@ -93,7 +97,11 @@ jobs:
           fetch-depth: 0
 
       - name: Run Nox (changed files only)
-        uses: nox-hq/nox@54b9bb3acbf4d250595271a2c06cfee4eb441ee9 # v1.26.0
+        # Pinned past v1.26.0: the action gained plugin installation in #447,
+        # which landed after that tag. Without it a plugins.required entry can
+        # never be satisfied and every run is [degraded]. Move back to a
+        # release SHA once one ships containing 741c990.
+        uses: nox-hq/nox@741c99069af0a41520802ab1f70b57b7e6948e0f # main, post-v1.26.0
         with:
           path: .
           format: sarif,json

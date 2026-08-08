@@ -1,43 +1,16 @@
 # nox configuration — the security/dependency gate for this repo.
 # Dependabot is deliberately unused; nox-remediate.yml opens the upgrade PRs.
 
-# No plugins.required, deliberately, and this costs real coverage.
+# Source-to-sink taint analysis. nox executes only the plugins named here, so
+# this block is what makes SAST run at all.
 #
-# nox executes only the plugins named under plugins.required, so declaring
-# nox/taint-analysis here is what would make source-to-sink SAST run. But the
-# nox-hq/nox action has no input for installing plugins, and CI scans through
-# that action — so a requirement declared here could never be satisfied. It
-# would make every run [degraded], and with fail-on-degraded set, red.
-#
-# The choice is therefore between a requirement that cannot be met and no
-# requirement at all, not between having SAST and not having it. The twenty-one
-# sibling plugin repositories carry no .nox.yaml for the same reason.
-#
-# Closing this properly means a `plugins` input on the action. Until then, run
-# taint analysis locally:
-#
-#     nox plugin install nox/taint-analysis
-#     nox scan .        # with plugins.required set in a local override
-
-# Accepted findings are waived with `nox:ignore` at the site they occur, not in
-# a baseline: the reason then lives beside the thing it explains, and it does
-# not depend on a fingerprint that varies between machines.
-#
-# Two rules about that directive, both learned the hard way here:
-#
-#   1. It must sit on the line IMMEDIATELY above the finding. Prose may precede
-#      the directive, but nothing may come between it and its target — a
-#      two-line comment silences nothing, and does so quietly.
-#   2. Some IaC rules match literal strings anywhere, including inside comments.
-#      Spelling a flagged token out in the waiver's own text re-triggers the
-#      rule on the comment line. Describe it in words instead.
-#
-# Everything fixable was fixed rather than waived: the base image is digest-
-# pinned, the runtime stage runs as uid 65532, and the maintainer label is a
-# profile URL rather than an email (which tripped DATA-001 — PII inside a
-# published image).
-#
-# Last reviewed: 2026-08-07
+# It was removed when this repo moved to scanning through the nox-hq/nox
+# action, because the action had no way to install plugins — a requirement
+# declared here could never be satisfied and made every run [degraded]. The
+# action installs them now (nox-hq/nox#447), so the requirement is real again.
+plugins:
+  required:
+    - nox/taint-analysis
 
 scan:
   exclude:
