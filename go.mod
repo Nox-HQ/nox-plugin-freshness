@@ -4,7 +4,7 @@ go 1.25.6
 
 require (
 	github.com/nox-hq/nox v0.1.0
-	golang.org/x/mod v0.38.0
+	golang.org/x/mod v0.40.0
 )
 
 require (
