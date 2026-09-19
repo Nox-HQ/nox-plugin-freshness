@@ -1,0 +1,7 @@
+name: nox-plugin-freshness
+version: 0.1.0
+track: supply-chain
+description: Flags dependencies whose provenance is suspicious -- a version published within the review window, withdrawn from its registry, or released by a different publisher than the one before it -- rather than whose version has a published advisory
+tools:
+  - name: scan
+    description: Check each dependency in package-lock.json and go.mod against its registry's metadata for age, withdrawal and publisher change
