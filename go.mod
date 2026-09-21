@@ -3,7 +3,7 @@ module github.com/nox-hq/nox-plugin-freshness
 go 1.26.5
 
 require (
-	github.com/nox-hq/nox v1.38.2
+	github.com/nox-hq/nox v1.39.2
 	golang.org/x/mod v0.41.0
 )
 
