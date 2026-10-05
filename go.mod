@@ -3,11 +3,12 @@ module github.com/nox-hq/nox-plugin-freshness
 go 1.26.5
 
 require (
-	github.com/nox-hq/nox v1.43.1
+	github.com/nox-hq/nox v1.48.1
 	golang.org/x/mod v0.41.0
 )
 
 require (
+	go.opentelemetry.io/otel/sdk/metric v1.45.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
