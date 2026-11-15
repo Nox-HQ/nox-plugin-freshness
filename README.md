@@ -1,5 +1,7 @@
 # nox-plugin-freshness
 
+[![nox security grade](.github/nox-badge.svg)](https://github.com/nox-hq/nox)
+
 Flags dependencies whose **provenance** is suspicious, rather than whose version
 is known-vulnerable.
 
