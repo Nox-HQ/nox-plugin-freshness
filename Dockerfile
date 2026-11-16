@@ -4,7 +4,7 @@
 # A nox:ignore directive must sit on the line IMMEDIATELY above the finding it
 # waives — prose may precede the directive, but not separate it from its target.
 # nox:ignore IAC-121 -- HEALTHCHECK needs a binary to poll; the runtime stage is scratch, holding one static plugin and no shell.
-FROM golang:1.27-alpine@sha256:eb61c3873c97416fff0116553fff65d67a3549f72e11d9758849a689cdd8b523 AS build
+FROM golang:1.27-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS build
 WORKDIR /src
 # nox:ignore IAC-123 -- build stage; the layer is discarded, and chowning the sources away from root would break the compile that follows.
 COPY go.mod go.sum ./
